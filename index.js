@@ -93,16 +93,17 @@ async function main() {
     let chunkSize;
     let totalNumberOfChunks;
     let chunkSizeCorrect = false;
+    var maxChunkSize = 300000;
     while (!chunkSizeCorrect) {
-        console.log('Please enter the number of lines each chunk should have (from 2 - 325000 lines)')
+        console.log(`Please enter the number of lines each chunk should have (from 2 - ${maxChunkSize} lines)`)
         chunkSize = prompt('> ')
         chunkSize = Number(chunkSize);
-        if (chunkSize >= 2 && chunkSize <= 325000) {
+        if (chunkSize >= 2 && chunkSize <= maxChunkSize) {
             chunkSizeCorrect = true;
             totalNumberOfChunks = Math.ceil(totalLines / chunkSize)
         }
         else {
-            console.log('The number you have input is out of the range (2 - 325000)')
+            console.log(`The number you have input is out of the range (2 - ${maxChunkSize})`)
         }
     }
     console.log("Total number of chunks : ", totalNumberOfChunks);
