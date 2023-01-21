@@ -63,7 +63,7 @@ function getReferenceList() {
     return false;
   }
 }
-function processLineByLine(file, referenceList, header, checkFor) {
+function processLineByLine(folder, file, referenceList, header, checkFor) {
   return new Promise(resolve => {
     //read from temp
     var lr = new _lineByLine.default(`output/temp.json`, {
@@ -71,8 +71,11 @@ function processLineByLine(file, referenceList, header, checkFor) {
     });
     var lineCount = 0;
     var lineInCSV = "";
-
-    const writeStream = fs.createWriteStream(`output/${file.substr(0, file.lastIndexOf('.'))}.csv`);
+    var dir = `./output/${folder}`;
+    if (!fs.existsSync(dir)) {
+      fs.mkdirSync(dir);
+    }
+    const writeStream = fs.createWriteStream(`output/${folder}/${file.substr(0, file.lastIndexOf('.'))}.csv`);
     lr.on('error', function (err) {
       console.log(err);
       resolve(err);
@@ -84,6 +87,7 @@ function processLineByLine(file, referenceList, header, checkFor) {
       const fields = Object.keys(jsonObj);
       fields.push(checkFor)
       const chineseLastName = checkChinese(line, referenceList, header);
+      const country = checkCountry(line, folder);
       const opts = {
         fields,
         header: lineCount == 1 ? true : false
@@ -100,7 +104,9 @@ function processLineByLine(file, referenceList, header, checkFor) {
         lineInCSV = lineInCSV + "false"
 
       }
-      writeStream.write(lineInCSV + '\n');
+      if (country) {
+        writeStream.write(lineInCSV + '\n');
+      }
 
       // 'line' contains the current line without the trailing newline character.
     });
@@ -110,7 +116,34 @@ function processLineByLine(file, referenceList, header, checkFor) {
     });
   });
 }
-
+function getListOfCountries() {
+  // console.log("getting list of countries");
+  return new Promise(resolve => {
+    //read from temp
+    var lr = new _lineByLine.default(`output/temp.json`, {
+      skipEmptyLines: true
+    });
+    var lineCount = 0;
+    var listOfCountries = []
+    lr.on('error', function (err) {
+      console.log(err);
+      resolve(err);
+    });
+    lr.on('line', function (line) {
+      //check if line has the element from referenceList
+      lineCount += 1;
+      var lineInJSON = JSON.parse(line);
+      listOfCountries.push(lineInJSON.location_country);
+      // 'line' contains the current line without the trailing newline character.
+    });
+    lr.on('end', function () {
+      var uniqueList = listOfCountries.filter((v, i, a) => a.indexOf(v) === i);
+      uniqueList = uniqueList.filter(n => n)
+      resolve(uniqueList);
+      // All lines are read, file is closed now.
+    });
+  });
+}
 function checkChinese(line, referenceList, header) {
   return referenceList.some(element => {
     if (line.includes(`"${header}":"${element[header]}"`)) {
@@ -118,6 +151,12 @@ function checkChinese(line, referenceList, header) {
     }
     return false;
   });
+}
+function checkCountry(line, folder) {
+  if (line.includes(`"location_country":"${folder}"`)) {
+    return true;
+  }
+  return false;
 }
 async function main() {
   try {
@@ -142,12 +181,24 @@ async function main() {
       const inputFilesAll = await listDir('input').catch(err => console.log(err));
       progressBar.start(inputFilesAll.length, 0);
       for (let i = 0; i < inputFilesAll.length; i++) {
+        var processingComplete = false;
         progressBar.update(i + 1);
         const file = inputFilesAll[i];
         //unzip one input file
         await unzipFile(file).then(async () => {
-          //check temp against reference
-          await processLineByLine(file, referenceList, header, checkFor).then(async () => {
+          //getList of countries
+
+          const listOfCountries = await getListOfCountries();
+          // console.log("listofcountries", listOfCountries)
+          for (let i = 0; i < listOfCountries.length; i++) {
+            const folder = listOfCountries[i];
+            //check temp against reference
+            await processLineByLine(folder, file, referenceList, header, checkFor);
+            if (i == listOfCountries.length - 1) {
+              processingComplete = true;
+            }
+          }
+          if (processingComplete) {
             //delete temp;
             try {
               await fs.promises.unlink("output/temp.json");
@@ -155,9 +206,13 @@ async function main() {
             } catch (error) {
               console.error('There was an error:', error.message);
             }
-          });
+          }
+
         });
       }
+      // console.log("combining output .csv files")
+      // const outputFoldersAll = await listDir('output').catch(err => console.log(err));
+      // console.log("outputFoldersAll", outputFoldersAll)
 
     } else {
       console.log("No references found!");
