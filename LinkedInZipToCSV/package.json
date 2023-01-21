@@ -1,0 +1,18 @@
+{
+  "name": "linkedinziptocsv",
+  "version": "1.0.0",
+  "description": "Convert zipped linked in data to csv and run queries on it",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "cli-progress": "^3.11.2",
+    "csv-parse": "^5.3.3",
+    "json2csv": "^5.0.7",
+    "line-by-line": "^0.1.6",
+    "xlsx": "^0.18.5"
+  }
+}

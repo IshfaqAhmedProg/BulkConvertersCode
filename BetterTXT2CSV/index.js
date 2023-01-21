@@ -6,31 +6,37 @@ console.log(`.########.##.....##.########..........#######...........######...##
 ....##.....##...##.....##............##................##....##.##....##...##.##..
 ....##....##.....##....##....#######.#########.#######..######...######.....###...`)
 
-import { createReadStream, createWriteStream } from 'fs';
-import { createInterface } from 'readline';
+
+import LineByLineReader from 'line-by-line';
+import { createWriteStream } from 'fs';
+
 
 async function processLineByLine(file) {
-    const readStream = createReadStream(file);
-    const rl = createInterface({
-        input: readStream,
-        crlfDelay: Infinity
+    var lr = new LineByLineReader(file, {
+        skipEmptyLines: true
     });
     var lineCount = 0;
-    var fileName = "chunk";
-    var numberOfChunk = 1;
-    // Note: we use the crlfDelay option to recognize all instances of CR LF
-    // ('\r\n') in input.txt as a single line break.
-    const writeStream = createWriteStream(`${fileName}.csv`)
-
-    for await (const line of rl) {
-        // Each line in input.txt will be successively available here as `line`.
+    const writeStream = createWriteStream('output.csv')
+    lr.on('error', function (err) {
+        console.log(err)
+        // 'err' contains error object
+    });
+    lr.on('line', function (line) {
         lineCount += 1
-        console.log(lineCount);
         var formattedLine = line.toString().replace(/\t/g, ",");
-        if (lineCount < 1000) {
+        console.log(formattedLine);
+        if (lineCount < 2000) {
             writeStream.write(formattedLine + '\n');
         }
-    }
-}
+        // 'line' contains the current line without the trailing newline character.
+    });
 
+    lr.on('end', function () {
+        console.log('end')
+        // All lines are read, file is closed now.
+    });
+}
+async function writeLines(){
+    
+}
 processLineByLine('sample.txt');
