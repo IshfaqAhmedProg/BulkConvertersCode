@@ -9,6 +9,7 @@ var _json2csv = require("json2csv");
 var _readline = _interopRequireDefault(require("readline"));
 var _cliProgress = _interopRequireDefault(require("cli-progress"));
 var csv = require("fast-csv");
+const json3 = require('json3');
 const { performance } = require('perf_hooks');
 function _interopRequireDefault(obj) { return obj && obj.__esModule ? obj : { default: obj }; }
 function _getRequireWildcardCache(nodeInterop) { if (typeof WeakMap !== "function") return null; var cacheBabelInterop = new WeakMap(); var cacheNodeInterop = new WeakMap(); return (_getRequireWildcardCache = function (nodeInterop) { return nodeInterop ? cacheNodeInterop : cacheBabelInterop; })(nodeInterop); }
@@ -98,16 +99,43 @@ function processLineByLine(folder, file, referenceList, header, checkFor) {
       // var startTime = performance.now();
       lineCount += 1
       //check if line has the element from referenceList
+      var sTime = performance.now();
       const jsonObj = JSON.parse(line);
       const country = checkCountry(jsonObj, folder);
       if (country) {
         lineCountCountry += 1;
         const fields = Object.keys(jsonObj);
         fields.push(checkFor)
-        const chineseLastName = checkChinese(jsonObj, referenceList, header);
         const opts = {
           fields,
           header: lineCountCountry == 1 ? true : false
+        };
+        try {
+          lineInCSV = _json2csv.parse(jsonObj, opts);
+        } catch (err) {
+          console.error(err);
+        }
+        const chineseLastName = checkChinese(jsonObj, referenceList, header);
+        if (chineseLastName) {
+          lineInCSV = lineInCSV + "true"
+        }
+        else {
+          lineInCSV = lineInCSV + "false"
+        }
+        // console.log("line", lineCountCountry, lineInCSV);
+        writeStream.write(lineInCSV + '\n');
+        var eTime = performance.now();
+        console.log(`line ${lineCount} country found took ${eTime - sTime}ms`)
+
+      }
+      else {
+        lineCountNoCountry += 1;
+        const fields = Object.keys(jsonObj);
+        fields.push(checkFor)
+        const chineseLastName = checkChinese(line, referenceList, header);
+        const opts = {
+          fields,
+          header: lineCountNoCountry == 1 ? true : false
         };
         try {
           lineInCSV = _json2csv.parse(jsonObj, opts);
@@ -120,36 +148,12 @@ function processLineByLine(folder, file, referenceList, header, checkFor) {
         else {
           lineInCSV = lineInCSV + "false"
         }
-        // console.log("line", lineCountCountry, lineInCSV);
-        writeStream.write(lineInCSV + '\n');
+        // console.log("line", lineCountNoCountry, lineInCSV);
+        noCountryStream.write(lineInCSV + '\n');
+        var eTime = performance.now()
+        console.log(`line ${lineCount} no country took ${eTime - sTime}ms`)
 
       }
-      // else {
-      //   lineCountNoCountry += 1;
-      //   const fields = Object.keys(jsonObj);
-      //   fields.push(checkFor)
-      //   const chineseLastName = checkChinese(line, referenceList, header);
-      //   const opts = {
-      //     fields,
-      //     header: lineCountNoCountry == 1 ? true : false
-      //   };
-      //   try {
-      //     lineInCSV = _json2csv.parse(jsonObj, opts);
-      //   } catch (err) {
-      //     console.error(err);
-      //   }
-      //   if (chineseLastName) {
-      //     lineInCSV = lineInCSV + "true"
-      //   }
-      //   else {
-      //     lineInCSV = lineInCSV + "false"
-      //   }
-      //   // console.log("line", lineCountNoCountry, lineInCSV);
-      //   noCountryStream.write(lineInCSV + '\n');
-
-      // }
-      // var endTime = performance.now()
-      // console.log(`line ${lineCount} took ${endTime - startTime}ms`)
       // 'line' contains the current line without the trailing newline character.
     });
     lr.on('end', function () {
