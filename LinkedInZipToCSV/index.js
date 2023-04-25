@@ -7,9 +7,6 @@ var _xlsx = _interopRequireDefault(require("xlsx"));
 var _lineByLine = _interopRequireDefault(require("line-by-line"));
 var _json2csv = require("json2csv");
 var _readline = _interopRequireDefault(require("readline"));
-var _cliProgress = _interopRequireDefault(require("cli-progress"));
-var csv = require("fast-csv");
-const json3 = require('json3');
 const { performance } = require('perf_hooks');
 function _interopRequireDefault(obj) { return obj && obj.__esModule ? obj : { default: obj }; }
 function _getRequireWildcardCache(nodeInterop) { if (typeof WeakMap !== "function") return null; var cacheBabelInterop = new WeakMap(); var cacheNodeInterop = new WeakMap(); return (_getRequireWildcardCache = function (nodeInterop) { return nodeInterop ? cacheNodeInterop : cacheBabelInterop; })(nodeInterop); }
@@ -29,7 +26,6 @@ const rl = _readline.default.createInterface({
   output: process.stdout
 });
 const prompt = query => new Promise(resolve => rl.question(query, resolve));
-
 async function unzipFile(file) {
   const unzip = _zlib.default.createUnzip();
   const input = fs.createReadStream(`input/${file}`);
@@ -69,106 +65,77 @@ function getReferenceList() {
     return false;
   }
 }
-function processLineByLine(folder, file, referenceList, header, checkFor) {
-  var startTime = performance.now()
+function processLineByLine(file, referenceList, header, checkFor, countryList) {
+  console.log(`Processing ${file}. please wait...`)
   return new Promise(resolve => {
+    var startTime = performance.now()
     //read from temp
-    console.log(`processing ${file}...`)
     var lr = new _lineByLine.default(`output/temp.json`, {
       skipEmptyLines: true
     });
-    var lineCountCountry = 0;
-    var lineCountNoCountry = 0;
     var lineCount = 0;
     var lineInCSV = "";
-    var dir = `./output/${folder}`;
-    if (!fs.existsSync(dir)) {
-      fs.mkdirSync(dir);
+    const countryWriteStreams = [];
+    for (let index = 0; index < countryList.length; index++) {
+      const country = countryList[index];
+      var dir = `./output/${country}`
+      if (!fs.existsSync(dir)) {
+        fs.mkdirSync(dir);
+      }
+      countryWriteStreams.push(fs.createWriteStream(`output/${country}/${file.substr(0, file.lastIndexOf('.'))}.csv`))
     }
-    var noCountrydir = `./output/noCountry`;
-    if (!fs.existsSync(noCountrydir)) {
-      fs.mkdirSync(noCountrydir);
+    var nocountrydir = `./output/noCountry`
+    if (!fs.existsSync(nocountrydir)) {
+      fs.mkdirSync(nocountrydir);
     }
-    const noCountryStream = fs.createWriteStream(`output/noCountry/${file.substr(0, file.lastIndexOf('.'))}.csv`)
-    const writeStream = fs.createWriteStream(`output/${folder}/${file.substr(0, file.lastIndexOf('.'))}.csv`);
+    const writeStream = fs.createWriteStream(`output/noCountry/${file.substr(0, file.lastIndexOf('.'))}.csv`);
     lr.on('error', function (err) {
       console.log(err);
       resolve(err);
     });
     lr.on('line', function (line) {
-      // var startTime = performance.now();
-      lineCount += 1
       //check if line has the element from referenceList
-      var sTime = performance.now();
-      const jsonObj = JSON.parse(line);
-      const country = checkCountry(jsonObj, folder);
-      if (country) {
-        lineCountCountry += 1;
-        const fields = Object.keys(jsonObj);
-        fields.push(checkFor)
-        const opts = {
-          fields,
-          header: lineCountCountry == 1 ? true : false
-        };
-        try {
-          lineInCSV = _json2csv.parse(jsonObj, opts);
-        } catch (err) {
-          console.error(err);
-        }
-        const chineseLastName = checkChinese(jsonObj, referenceList, header);
-        if (chineseLastName) {
-          lineInCSV = lineInCSV + "true"
-        }
-        else {
-          lineInCSV = lineInCSV + "false"
-        }
-        // console.log("line", lineCountCountry, lineInCSV);
-        writeStream.write(lineInCSV + '\n');
-        var eTime = performance.now();
-        console.log(`line ${lineCount} country found took ${eTime - sTime}ms`)
 
+      lineCount += 1;
+      const jsonObj = JSON.parse(line);
+      const fields = Object.keys(jsonObj);
+      fields.push(checkFor)
+      const opts = {
+        fields,
+        header: false
+      };
+      try {
+        lineInCSV = (0, _json2csv.parse)(jsonObj, opts);
+      } catch (err) {
+        console.error(err);
+      }
+      const chineseLastName = checkChinese(jsonObj, referenceList);
+      if (chineseLastName) {
+        lineInCSV = lineInCSV + "true"
       }
       else {
-        lineCountNoCountry += 1;
-        const fields = Object.keys(jsonObj);
-        fields.push(checkFor)
-        const chineseLastName = checkChinese(line, referenceList, header);
-        const opts = {
-          fields,
-          header: lineCountNoCountry == 1 ? true : false
-        };
-        try {
-          lineInCSV = _json2csv.parse(jsonObj, opts);
-        } catch (err) {
-          console.error(err);
-        }
-        if (chineseLastName) {
-          lineInCSV = lineInCSV + "true"
-        }
-        else {
-          lineInCSV = lineInCSV + "false"
-        }
-        // console.log("line", lineCountNoCountry, lineInCSV);
-        noCountryStream.write(lineInCSV + '\n');
-        var eTime = performance.now()
-        console.log(`line ${lineCount} no country took ${eTime - sTime}ms`)
-
+        lineInCSV = lineInCSV + "false"
+      }
+      const countryFound = checkCountry(jsonObj, countryList);
+      if (countryFound != null) {
+        countryWriteStreams[countryFound].write(lineInCSV + '\n')
+      }
+      else {
+        writeStream.write(lineInCSV + '\n')
       }
       // 'line' contains the current line without the trailing newline character.
     });
     lr.on('end', function () {
-      var endTime = performance.now()
-
-      console.log(`${file} read complete for ${folder} took ${endTime - startTime}ms`)
+      var stopTime = performance.now()
+      console.log(`Processed ${file}. Took ${stopTime - startTime}ms, average time per line ${(stopTime - startTime) / lineCount}ms`)
       resolve();
       // All lines are read, file is closed now.
     });
   });
 }
 function getListOfCountries() {
-  console.log("getting list of countries");
+  console.log(`Getting list of countries`);
   var startTime = performance.now()
-
   return new Promise(resolve => {
     //read from temp
     var lr = new _lineByLine.default(`output/temp.json`, {
@@ -189,60 +156,25 @@ function getListOfCountries() {
       var uniqueList = listOfCountries.filter((v, i, a) => a.indexOf(v) === i);
       uniqueList = uniqueList.filter(n => n)
       var endTime = performance.now()
-      console.log(`time taken ${endTime - startTime}ms`)
+      console.log(`Got list of countries. Took ${endTime - startTime}ms`)
       resolve(uniqueList);
       // All lines are read, file is closed now.
     });
   });
 }
-function checkChinese(line, referenceList, header) {
+function checkChinese(line, referenceList) {
   const index = referenceList.indexOf(line.last_name);
   if (index != -1) {
     return true
   }
   return false
 }
-function checkCountry(line, folder) {
-  if (line.location_country == folder) {
-    return true;
+function checkCountry(line, countryList) {
+  const index = countryList.indexOf(line.location_country);
+  if (index != -1) {
+    return index
   }
-  return false;
-}
-
-function concatCSVAndOutput(csvFilePaths, outputFilePath) {
-  const promises = csvFilePaths.map((path) => {
-    return new Promise((resolve) => {
-      const dataArray = [];
-      return csv
-        .parseFile(path, { headers: true })
-        .on('data', function (data) {
-          dataArray.push(data);
-        })
-        .on('end', function () {
-          resolve(dataArray);
-        });
-    });
-  });
-
-  return Promise.all(promises)
-    .then((results) => {
-
-      const csvStream = csv.format({ headers: true });
-      const writableStream = fs.createWriteStream(outputFilePath);
-
-      writableStream.on('finish', function () {
-        console.log("\x1b[32m" + `Done concatenating ${outputFilePath}!`);
-      });
-
-      csvStream.pipe(writableStream);
-      results.forEach((result) => {
-        result.forEach((data) => {
-          csvStream.write(data);
-        });
-      });
-      csvStream.end();
-
-    });
+  return null
 }
 async function main() {
   try {
@@ -254,7 +186,7 @@ async function main() {
       var header;
       var checkFor;
       while (!headerFound) {
-        header = await prompt("\x1b[37m" + "\nEnter the header you want to run query on: ");
+        header = await prompt("\x1b[37m" + "\nEnter the header from ref.xlsx you want to crosscheck: ");
         if (Object.keys(referenceList[0]).includes(header)) {
           console.log("\x1b[32m" + `\nRunning query on "${header}"`);
           headerFound = true;
@@ -268,62 +200,26 @@ async function main() {
       referenceList = referenceList.map((element) => { return element[header] })
       // progressBar.start(inputFilesAll.length, 0);
       for (let i = 0; i < inputFilesAll.length; i++) {
-        var processingComplete = false;
-        // progressBar.update(i + 1);
         const file = inputFilesAll[i];
         //unzip one input file
         await unzipFile(file).then(async () => {
-          //getList of countries
-
+          //check temp against reference
           const listOfCountries = await getListOfCountries();
-          console.log("total countries", listOfCountries.length)
-          for (let i = 0; i < listOfCountries.length; i++) {
-            const folder = listOfCountries[i];
-            //check temp against reference
-            await processLineByLine(folder, file, referenceList, header, checkFor);
-            if (i == listOfCountries.length - 1) {
-              processingComplete = true;
-            }
-          }
-          if (processingComplete) {
+          console.log(`${listOfCountries.length} countries found`)
+          await processLineByLine(file, referenceList, header, checkFor, listOfCountries).then(async () => {
             //delete temp;
             try {
               await fs.promises.unlink("output/temp.json");
-              console.log(`Successfully deleted output/temp.json`);
+              // console.log(`Successfully deleted output/temp.json`);
             } catch (error) {
               console.error('There was an error:', error.message);
             }
-          }
-
+          });
         });
       }
-      // console.log("combining output .csv files")
-      // const outputFoldersAll = await listDir('output').catch(err => console.log(err));
-      // console.log("outputFoldersAll", outputFoldersAll.length)
-      // for (let index = 0; index < outputFoldersAll.length; index++) {
-      //   const outputFolder = outputFoldersAll[index];
-      //   const filesInOutputFolder = await listDir(`output/${outputFolder}`).catch(err => console.log(err))
-      //   if (filesInOutputFolder.length != 1) {
-      //     var completeConcate = false;
-      //     const fileAbsolutePath = filesInOutputFolder.map((file) => `output/${outputFolder}/` + file)
-      //     await concatCSVAndOutput(fileAbsolutePath, `output/${outputFolder}/${outputFolder}.csv`).then(() => {
-      //       completeConcate = true
-      //     })
-      //     if (completeConcate) {
-      //       for (let file = 0; file < fileAbsolutePath.length; file++) {
-      //         fs.unlink(fileAbsolutePath[file], err => {
-      //           if (err) throw err;
-      //           console.log("\x1b[31m" + `${fileAbsolutePath[file]} was deleted!`);
-      //         })
-      //       }
-      //     }
-      //   }
-      // }
-
     } else {
       console.log("No references found!");
     }
-
     rl.close();
   } catch (e) {
     console.error("Unable to prompt", e);

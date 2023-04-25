@@ -9,11 +9,7 @@
   "author": "",
   "license": "ISC",
   "dependencies": {
-    "cli-progress": "^3.11.2",
-    "csv-parse": "^5.3.3",
-    "fast-csv": "^4.3.6",
     "json2csv": "^5.0.7",
-    "json3": "^3.3.3",
     "line-by-line": "^0.1.6",
     "xlsx": "^0.18.5"
   }

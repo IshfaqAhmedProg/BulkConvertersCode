@@ -1,0 +1,17 @@
+{
+  "name": "combinecsv",
+  "version": "1.0.0",
+  "description": "Combine multiple files line by line",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "author": "Ishfaq Ahmed",
+  "license": "ISC",
+  "dependencies": {
+    "csv-merger": "^0.1.4",
+    "fast-csv": "^4.3.6",
+    "prepend-file": "^2.0.1",
+    "split-file": "^2.3.0"
+  }
+}

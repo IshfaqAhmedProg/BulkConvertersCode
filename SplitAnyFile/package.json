@@ -1,0 +1,16 @@
+{
+  "name": "splitanyfile",
+  "version": "1.0.0",
+  "description": "split any file txt,csv and output to csv",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "author": "Ishfaq Ahmed",
+  "license": "ISC",
+  "dependencies": {
+    "cli-progress": "^3.11.2",
+    "json2csv": "^4.2.1",
+    "line-by-line": "^0.1.6"
+  }
+}

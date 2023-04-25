@@ -3,13 +3,12 @@
   "version": "1.0.0",
   "description": "Better version of txt2csv",
   "main": "index.js",
-  "type": "module",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "author": "Ishfaq Ahmed",
   "license": "ISC",
   "dependencies": {
-    "line-by-line": "^0.1.6"
+    "split-file": "^2.3.0"
   }
 }
